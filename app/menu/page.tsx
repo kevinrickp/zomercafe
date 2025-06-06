@@ -1,16 +1,63 @@
-import { db } from '@/lib/db';
+"use client";
 
-export default async function MenuPage() {
-  const [rows] = await db.query('SELECT * FROM menu ORDER BY category, name');
-  const menu = rows as any[];
+import { useEffect, useState } from "react";
 
-  const groupedMenu = menu.reduce((acc: any, item: any) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
+type MenuItem = {
+  id: number;
+  name: string;
+  description: string;
+  image?: string;
+  price: number;
+  category: {
+    id: number;
+    name: string;
+  };
+};
+
+export default function MenuPage() {
+  const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMenu = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/menus");
+        const json = await res.json();
+
+        // Jika respons dalam format { data: [...] }
+        const data = Array.isArray(json) ? json : json.data;
+
+        // Jika tetap bukan array, lempar error
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid menu data format");
+        }
+
+        setMenu(data);
+      } catch (error) {
+        console.error("Failed to fetch menu:", error);
+        setMenu([]); // fallback biar reduce gak error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMenu();
+  }, []);
+
+  const groupedMenu = menu.reduce((acc: Record<string, MenuItem[]>, item) => {
+    const category = item.category?.name || "Uncategorized";
+    if (!acc[category]) {
+      acc[category] = [];
     }
-    acc[item.category].push(item);
+    acc[category].push(item);
     return acc;
   }, {});
+
+  if (loading) {
+    return (
+      <div className="text-center py-10 text-orange-500">Loading menu...</div>
+    );
+  }
 
   return (
     <section className="p-6 md:p-10 bg-gradient-to-br from-orange-50 to-yellow-100 min-h-screen">
@@ -26,22 +73,32 @@ export default async function MenuPage() {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {(items as any[]).map((item) => (
+              {items.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-white rounded-2xl shadow-lg p-5 transform transition duration-300 hover:scale-105 hover:shadow-xl"
+                  className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-all"
                 >
-                  <h3 className="text-xl font-medium text-gray-800">
-                    {item.name}
-                  </h3>
+                  {item.image && (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-40 object-cover"
+                    />
+                  )}
 
-                  <p className="text-sm text-gray-500 mt-1">
-                    {item.description || 'No description'}
-                  </p>
+                  <div className="p-5">
+                    <h3 className="text-lg font-semibold text-zinc-800 mb-1">
+                      {item.name}
+                    </h3>
 
-                  <p className="mt-3 text-right font-semibold text-orange-600">
-                    Rp {Number(item.price).toLocaleString('id-ID')}
-                  </p>
+                    <p className="text-sm text-zinc-500">
+                      {item.description || "No description available."}
+                    </p>
+
+                    <p className="mt-4 text-right text-orange-600 font-bold">
+                      Rp {Number(item.price).toLocaleString("id-ID")}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>

@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 const backgrounds = [
-  '/images/zomer1.jpg',
-  '/images/zomer2.jpg',
-  '/images/zomer3.jpg',
+  "/images/zomer1.jpg",
+  "/images/zomer2.jpg",
+  "/images/zomer3.jpg",
 ];
 
 export default function HomePage() {
@@ -23,9 +23,9 @@ export default function HomePage() {
       className="relative w-full h-screen flex items-center justify-center text-white overflow-hidden"
       style={{
         backgroundImage: `url(${backgrounds[bgIndex]})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        transition: 'background-image 1s ease-in-out',
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        transition: "background-image 1s ease-in-out",
       }}
     >
       <div className="absolute inset-0 bg-black/50" />
@@ -34,7 +34,8 @@ export default function HomePage() {
           Welcome to Zomer Cafe
         </h1>
         <p className="text-lg md:text-xl font-medium drop-shadow-md">
-          Discover cozy ambiance, curated menus, and memorable experiences at your favorite chill spot.
+          Discover cozy ambiance, curated menus, and memorable experiences at
+          your favorite chill spot.
         </p>
       </div>
     </section>
