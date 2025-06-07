@@ -115,7 +115,7 @@ export default function ReservationPage() {
             </label>
             <input
               id="date"
-              type="date"
+              type="datetime-local"
               value={form.date}
               required
               className="p-3 border border-zinc-300 rounded w-full text-zinc-600 text-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
