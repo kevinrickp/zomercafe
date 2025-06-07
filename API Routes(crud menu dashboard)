@@ -1,0 +1,39 @@
+const express = require('express');
+const router = express.Router();
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+// Get all menus
+router.get('/', async (req, res) => {
+  const menus = await prisma.menu.findMany({ include: { category: true } });
+  res.json(menus);
+});
+
+// Create a new menu
+router.post('/', async (req, res) => {
+  const { name, price, description, imageUrl, categoryId } = req.body;
+  const menu = await prisma.menu.create({
+    data: { name, price, description, imageUrl, categoryId },
+  });
+  res.json(menu);
+});
+
+// Update a menu
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, price, description, imageUrl, categoryId } = req.body;
+  const menu = await prisma.menu.update({
+    where: { id: parseInt(id) },
+    data: { name, price, description, imageUrl, categoryId },
+  });
+  res.json(menu);
+});
+
+// Delete a menu
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  await prisma.menu.delete({ where: { id: parseInt(id) } });
+  res.json({ message: 'Menu deleted' });
+});
+
+module.exports = router;
