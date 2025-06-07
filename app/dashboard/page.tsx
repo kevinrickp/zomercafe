@@ -3,7 +3,7 @@
 import { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-// Definisi tipe data (tidak ada perubahan)
+// Definisi tipe data
 type User = {
   id: number;
   username: string;
@@ -32,11 +32,11 @@ type Menu = {
 export default function Dashboard() {
   const router = useRouter();
 
-  // State yang sudah ada (tidak ada perubahan)
+  // State
   const [user, setUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [activeTab, setActiveTab] = useState<"booking" | "menu" | "category">(
-    "menu" // Default ke tab menu untuk kemudahan testing
+    "category" // Default ke tab kategori untuk kemudahan
   );
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
@@ -44,6 +44,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // State untuk form & modal Menu
   const [formMenu, setFormMenu] = useState({
     name: "",
     description: "",
@@ -51,12 +53,14 @@ export default function Dashboard() {
     price: "",
     categoryId: "",
   });
-
-  // State untuk Edit Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingMenu, setEditingMenu] = useState<Menu | null>(null);
 
-  // Fungsi fetch dan hooks awal
+  // State untuk form & modal Kategori
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
@@ -100,6 +104,7 @@ export default function Dashboard() {
     }
     setLoading(false);
   }
+
   async function fetchMenus() {
     setLoading(true);
     try {
@@ -111,6 +116,7 @@ export default function Dashboard() {
     }
     setLoading(false);
   }
+
   async function fetchCategories() {
     setLoading(true);
     try {
@@ -122,6 +128,7 @@ export default function Dashboard() {
     }
     setLoading(false);
   }
+
   function handleInputChange(
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) {
@@ -142,6 +149,7 @@ export default function Dashboard() {
       }));
     }
   }
+
   async function handleAddMenu(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -184,6 +192,7 @@ export default function Dashboard() {
     }
     setLoading(false);
   }
+
   async function handleDeleteMenu(menuId: number) {
     if (!window.confirm("Apakah Anda yakin ingin menghapus menu ini?")) {
       return;
@@ -206,6 +215,7 @@ export default function Dashboard() {
       setLoading(false);
     }
   }
+
   async function handleUpdateMenu(e: FormEvent) {
     e.preventDefault();
     if (!editingMenu) return;
@@ -241,6 +251,97 @@ export default function Dashboard() {
     }
   }
 
+  async function handleAddCategory(e: FormEvent) {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      setError("Nama kategori tidak boleh kosong.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("http://localhost:4000/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCategoryName }),
+      });
+      const json = await res.json();
+      if (!res.ok)
+        throw new Error(json.message || "Gagal menambahkan kategori.");
+      setSuccess("Kategori berhasil ditambahkan.");
+      setNewCategoryName("");
+      fetchCategories();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteCategory(categoryId: number) {
+    if (
+      !window.confirm(
+        "Yakin ingin menghapus kategori ini? Menghapus kategori juga akan gagal jika masih ada menu yang menggunakannya."
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch(
+        `http://localhost:4000/categories/${categoryId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.message || "Gagal menghapus kategori.");
+      }
+      setSuccess("Kategori berhasil dihapus.");
+      setCategories((prev) => prev.filter((cat) => cat.id !== categoryId));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateCategory(e: FormEvent) {
+    e.preventDefault();
+    if (!editingCategory || !editingCategory.name.trim()) {
+      setError("Nama kategori tidak boleh kosong.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch(
+        `http://localhost:4000/categories/${editingCategory.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: editingCategory.name }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok)
+        throw new Error(json.message || "Gagal mengupdate kategori.");
+      setSuccess("Kategori berhasil diperbarui.");
+      setIsCategoryModalOpen(false);
+      setEditingCategory(null);
+      fetchCategories();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (loadingUser || !user || user.role !== "admin") {
     return <div className="p-6">Memuat...</div>;
   }
@@ -248,7 +349,6 @@ export default function Dashboard() {
   return (
     <>
       <div className="min-h-screen flex bg-white text-zinc-900 font-sans">
-        {/* Sidebar */}
         <aside className="w-64 bg-zinc-50 border-r border-zinc-200 p-6 flex flex-col">
           <h2 className="text-2xl font-bold mb-10 text-orange-600">
             Dashboard
@@ -280,7 +380,6 @@ export default function Dashboard() {
           </nav>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 p-8 max-w-7xl mx-auto overflow-auto">
           {loading && (
             <div className="mb-4 text-orange-500 font-semibold">Loading...</div>
@@ -293,7 +392,6 @@ export default function Dashboard() {
           )}
 
           <div className="mt-4 text-zinc-700">
-            {/* KODE YANG DIPERBAIKI: Bagian booking dikembalikan */}
             {activeTab === "booking" && (
               <>
                 {reservations.length === 0 ? (
@@ -315,7 +413,6 @@ export default function Dashboard() {
 
             {activeTab === "menu" && (
               <>
-                {/* Form Tambah Menu */}
                 <form
                   onSubmit={handleAddMenu}
                   className="mb-6 p-4 border border-zinc-300 rounded shadow-sm max-w-md"
@@ -417,7 +514,6 @@ export default function Dashboard() {
 
                 <hr className="my-8" />
 
-                {/* List Menu dengan tombol Edit & Hapus */}
                 <h3 className="text-xl font-semibold mb-4">Daftar Menu</h3>
                 {menus.length === 0 ? (
                   <p>Tidak ada menu.</p>
@@ -469,19 +565,67 @@ export default function Dashboard() {
               </>
             )}
 
-            {/* KODE YANG DIPERBAIKI: Bagian category dikembalikan */}
             {activeTab === "category" && (
               <>
+                <form
+                  onSubmit={handleAddCategory}
+                  className="mb-6 p-4 border border-zinc-300 rounded shadow-sm max-w-md"
+                >
+                  <h3 className="text-xl font-semibold mb-4">
+                    Tambah Kategori Baru
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Nama Kategori"
+                      className="flex-grow border border-zinc-300 rounded px-3 py-2"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 disabled:opacity-50"
+                    >
+                      {loading ? "..." : "Tambah"}
+                    </button>
+                  </div>
+                </form>
+
+                <hr className="my-8" />
+
+                <h3 className="text-xl font-semibold mb-4">Daftar Kategori</h3>
                 {categories.length === 0 ? (
                   <p>Tidak ada kategori.</p>
                 ) : (
-                  <ul className="space-y-2">
+                  <div className="space-y-3">
                     {categories.map((c) => (
-                      <li key={c.id} className="border p-3 rounded shadow-sm">
-                        {c.name}
-                      </li>
+                      <div
+                        key={c.id}
+                        className="border p-3 rounded-lg shadow-sm flex justify-between items-center bg-white"
+                      >
+                        <span className="font-medium">{c.name}</span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => {
+                              setEditingCategory(c);
+                              setIsCategoryModalOpen(true);
+                            }}
+                            className="bg-blue-500 text-white px-3 py-1 text-sm rounded-md hover:bg-blue-600"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(c.id)}
+                            className="bg-red-500 text-white px-3 py-1 text-sm rounded-md hover:bg-red-600"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </>
             )}
@@ -489,7 +633,6 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* Modal untuk Edit Menu */}
       {isEditModalOpen && editingMenu && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
@@ -577,6 +720,53 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
+                  className="bg-zinc-200 text-zinc-800 px-4 py-2 rounded hover:bg-zinc-300"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {loading ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isCategoryModalOpen && editingCategory && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Edit Kategori</h3>
+            <form onSubmit={handleUpdateCategory}>
+              <div className="mb-4">
+                <label
+                  htmlFor="edit-cat-name"
+                  className="block font-medium mb-1"
+                >
+                  Nama Kategori
+                </label>
+                <input
+                  id="edit-cat-name"
+                  type="text"
+                  value={editingCategory.name}
+                  onChange={(e) =>
+                    setEditingCategory({
+                      ...editingCategory,
+                      name: e.target.value,
+                    })
+                  }
+                  className="w-full border border-zinc-300 rounded px-3 py-2"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
                   className="bg-zinc-200 text-zinc-800 px-4 py-2 rounded hover:bg-zinc-300"
                 >
                   Batal
