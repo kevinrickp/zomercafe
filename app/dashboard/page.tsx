@@ -36,7 +36,7 @@ export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [activeTab, setActiveTab] = useState<"booking" | "menu" | "category">(
-    "category" // Default ke tab kategori untuk kemudahan
+    "booking"
   );
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
@@ -60,6 +60,18 @@ export default function Dashboard() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
+  // State untuk form & modal Booking
+  const [formBooking, setFormBooking] = useState({
+    name: "",
+    tableNo: "",
+    people: "",
+    date: "",
+  });
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<Reservation | null>(
+    null
+  );
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -342,6 +354,95 @@ export default function Dashboard() {
     }
   }
 
+  function handleBookingFormChange(e: ChangeEvent<HTMLInputElement>) {
+    const { name, value } = e.target;
+    setFormBooking((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handleAddBooking(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("http://localhost:4000/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formBooking),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Gagal menambah booking.");
+      setSuccess("Booking berhasil ditambahkan.");
+      setFormBooking({ name: "", tableNo: "", people: "", date: "" });
+      fetchReservations();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteBooking(bookingId: number) {
+    if (!window.confirm("Yakin ingin menghapus booking ini?")) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch(
+        `http://localhost:4000/reservations/${bookingId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.message || "Gagal menghapus booking.");
+      }
+      setSuccess("Booking berhasil dihapus.");
+      setReservations((prev) => prev.filter((r) => r.id !== bookingId));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateBooking(e: FormEvent) {
+    e.preventDefault();
+    if (!editingBooking) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch(
+        `http://localhost:4000/reservations/${editingBooking.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editingBooking),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Gagal mengupdate booking.");
+      setSuccess("Booking berhasil diperbarui.");
+      setIsBookingModalOpen(false);
+      setEditingBooking(null);
+      fetchReservations();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const formatDateTimeForInput = (isoDate: string) => {
+    if (!isoDate) return "";
+    const d = new Date(isoDate);
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    const localDate = new Date(d.getTime() - tzOffset);
+    return localDate.toISOString().slice(0, 16);
+  };
+
   if (loadingUser || !user || user.role !== "admin") {
     return <div className="p-6">Memuat...</div>;
   }
@@ -394,20 +495,130 @@ export default function Dashboard() {
           <div className="mt-4 text-zinc-700">
             {activeTab === "booking" && (
               <>
-                {reservations.length === 0 ? (
-                  <p>Tidak ada booking.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {reservations.map((r) => (
-                      <li key={r.id} className="border p-3 rounded shadow-sm">
-                        <p className="font-semibold">{r.name}</p>
-                        <p>Table: {r.tableNo}</p>
-                        <p>Jumlah orang: {r.people}</p>
-                        <p>Tanggal: {new Date(r.date).toLocaleString()}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <form
+                  onSubmit={handleAddBooking}
+                  className="mb-6 p-4 border border-zinc-300 rounded shadow-sm grid grid-cols-1 md:grid-cols-5 gap-4"
+                >
+                  <h3 className="text-xl font-semibold col-span-1 md:col-span-5">
+                    Tambah Booking / Blokir Meja
+                  </h3>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Atas Nama
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formBooking.name}
+                      onChange={handleBookingFormChange}
+                      className="p-3 border border-zinc-300 rounded w-full placeholder-zinc-500 text-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      No. Meja
+                    </label>
+                    <select
+                      name="tableNo"
+                      value={formBooking.tableNo}
+                      onChange={handleBookingFormChange}
+                      className="p-3 border border-zinc-300 rounded w-full placeholder-zinc-500 text-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      required
+                    >
+                      <option value="" disabled>
+                        -- Pilih Meja --
+                      </option>
+                      {Array.from({ length: 9 }, (_, i) => i + 1).map(
+                        (tableNumber) => (
+                          <option key={tableNumber} value={tableNumber}>
+                            Meja {tableNumber}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Jumlah Orang
+                    </label>
+                    <input
+                      type="number"
+                      name="people"
+                      value={formBooking.people}
+                      onChange={handleBookingFormChange}
+                      className="p-3 border border-zinc-300 rounded w-full placeholder-zinc-500 text-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Tanggal & Waktu
+                    </label>
+                    <input
+                      type="datetime-local"
+                      name="date"
+                      value={formBooking.date}
+                      onChange={handleBookingFormChange}
+                      className="p-3 border border-zinc-300 rounded w-full placeholder-zinc-500 text-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="self-end bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 disabled:opacity-50"
+                  >
+                    {loading ? "..." : "Tambah"}
+                  </button>
+                </form>
+
+                <hr className="my-8" />
+
+                <h3 className="text-xl font-semibold mb-4">Daftar Booking</h3>
+                <div className="space-y-3">
+                  {reservations.length === 0 ? (
+                    <p>Tidak ada booking.</p>
+                  ) : (
+                    reservations.map((r) => (
+                      <div
+                        key={r.id}
+                        className="border p-4 rounded-lg shadow-sm flex flex-wrap justify-between items-center gap-4 bg-white"
+                      >
+                        <div>
+                          <p className="font-bold text-lg">{r.name}</p>
+                          <p className="text-sm text-zinc-600">
+                            Meja: {r.tableNo} | Jumlah: {r.people} orang
+                          </p>
+                          <p className="text-sm text-zinc-600">
+                            Waktu:{" "}
+                            {new Date(r.date).toLocaleString("id-ID", {
+                              dateStyle: "full",
+                              timeStyle: "short",
+                            })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => {
+                              setEditingBooking(r);
+                              setIsBookingModalOpen(true);
+                            }}
+                            className="bg-blue-500 text-white px-3 py-1 text-sm rounded-md hover:bg-blue-600"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBooking(r.id)}
+                            className="bg-red-500 text-white px-3 py-1 text-sm rounded-md hover:bg-red-600"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </>
             )}
 
@@ -633,6 +844,7 @@ export default function Dashboard() {
         </main>
       </div>
 
+      {/* Modal Edit Menu */}
       {isEditModalOpen && editingMenu && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
@@ -715,7 +927,6 @@ export default function Dashboard() {
                   ))}
                 </select>
               </div>
-
               <div className="flex justify-end gap-4 mt-6">
                 <button
                   type="button"
@@ -737,6 +948,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Modal Edit Kategori */}
       {isCategoryModalOpen && editingCategory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
@@ -767,6 +979,107 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(false)}
+                  className="bg-zinc-200 text-zinc-800 px-4 py-2 rounded hover:bg-zinc-300"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {loading ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Booking */}
+      {isBookingModalOpen && editingBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Edit Booking</h3>
+            <form onSubmit={handleUpdateBooking}>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block font-medium mb-1">Atas Nama</label>
+                  <input
+                    type="text"
+                    value={editingBooking.name}
+                    onChange={(e) =>
+                      setEditingBooking({
+                        ...editingBooking,
+                        name: e.target.value,
+                      })
+                    }
+                    className="w-full border-zinc-300 rounded px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium mb-1">No. Meja</label>
+                  <select
+                    value={editingBooking.tableNo}
+                    onChange={(e) =>
+                      setEditingBooking({
+                        ...editingBooking,
+                        tableNo: Number(e.target.value),
+                      })
+                    }
+                    className="w-full border-black rounded px-3 py-2 bg-white"
+                    required
+                  >
+                    <option value="" disabled>
+                      -- Pilih Meja --
+                    </option>
+                    {Array.from({ length: 9 }, (_, i) => i + 1).map(
+                      (tableNumber) => (
+                        <option key={tableNumber} value={tableNumber}>
+                          Meja {tableNumber}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-medium mb-1">Jumlah Orang</label>
+                  <input
+                    type="number"
+                    value={editingBooking.people}
+                    onChange={(e) =>
+                      setEditingBooking({
+                        ...editingBooking,
+                        people: Number(e.target.value),
+                      })
+                    }
+                    className="w-full border-zinc-300 rounded px-3 py-2"
+                    required
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block font-medium mb-1">
+                    Tanggal & Waktu
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={formatDateTimeForInput(editingBooking.date)}
+                    onChange={(e) =>
+                      setEditingBooking({
+                        ...editingBooking,
+                        date: e.target.value,
+                      })
+                    }
+                    className="w-full border-zinc-300 rounded px-3 py-2"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsBookingModalOpen(false)}
                   className="bg-zinc-200 text-zinc-800 px-4 py-2 rounded hover:bg-zinc-300"
                 >
                   Batal
