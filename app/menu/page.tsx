@@ -80,9 +80,12 @@ export default function MenuPage() {
                 >
                   {item.image && (
                     <img
-                      src={item.image}
+                      src={`http://localhost:4000/${item.image.replace(
+                        /\\/g,
+                        "/"
+                      )}`}
                       alt={item.name}
-                      className="w-full h-40 object-cover"
+                      className="w-full h-40 object-cover rounded-md mb-4"
                     />
                   )}
 
